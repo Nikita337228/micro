@@ -1,0 +1,33 @@
+//.h
+public slots:
+    void toggleMute();
+
+private:
+    RisipCall* call;
+    bool muted = false;
+
+//.c++
+void MyCallWrapper::toggleMute()
+{
+    if (!call)
+        return;
+
+    // Пытаемся получить RisipMedia
+    RisipMedia* media = nullptr;
+
+    // Вариант 1: если media(int) есть
+    if (call->mediaCount() > 0) {
+        media = call->media(0); // обычно первый — аудио
+    }
+
+    // Вариант 2: если call->audio() или что-то другое — используй это
+
+    if (media) {
+        muted = !muted;
+        media->setMicVolume(muted ? 0.0f : 1.0f);
+    } else {
+        qWarning() << "Не удалось получить RisipMedia из звонка";
+    }
+}
+connect(muteButton, &QPushButton::clicked, myCallWrapper, &MyCallWrapper::toggleMute);
+
