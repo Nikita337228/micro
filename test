@@ -32,11 +32,10 @@ void ListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     int status_seti = index.data(Qt::UserRole + 4).toInt();
     QString contact_photo = index.data(Qt::UserRole + 5).toString();
 
-    // Размеры для аватара
-    int imageSpace = 70;
-    QRect avatarRect = option.rect.adjusted(10, 10, -option.rect.width() + 70, -10);
+    // Рисуем аватарку в круге
+    int avatarDiameter = 50; // Диаметр круга аватара
+    QRect avatarRect(option.rect.left() + 10, option.rect.top() + (option.rect.height() - avatarDiameter) / 2, avatarDiameter, avatarDiameter);
 
-    // Загружаем аватарку
     QImage avatarImage;
     if (contact_photo.isEmpty()) {
         avatarImage = QImage(":/resource/222/avatar.png");
@@ -44,48 +43,60 @@ void ListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
         avatarImage = QImage(contact_photo);
     }
 
-    // Масштабируем аватарку с сохранением пропорций
-    QImage scaledAvatar = avatarImage.scaled(
-        avatarRect.size(),
-        Qt::KeepAspectRatio,
-        Qt::SmoothTransformation
-    );
+    if (!avatarImage.isNull()) {
+        QImage scaledAvatar = avatarImage.scaled(
+            avatarRect.size(),
+            Qt::KeepAspectRatioByExpanding,
+            Qt::SmoothTransformation
+        );
 
-    // Готовим клиппинг по кругу
-    QPainterPath path;
-    path.addEllipse(avatarRect);
+        // Центрируем и обрезаем до квадрата
+        QRect centerCrop(
+            (scaledAvatar.width() - avatarRect.width()) / 2,
+            (scaledAvatar.height() - avatarRect.height()) / 2,
+            avatarRect.width(),
+            avatarRect.height()
+        );
+        scaledAvatar = scaledAvatar.copy(centerCrop);
 
-    painter->save();
-    painter->setClipPath(path);
+        // Обрезаем в круг
+        QPainterPath path;
+        path.addEllipse(avatarRect);
 
-    // Центрируем аватарку внутри круга
-    QPoint center = avatarRect.center();
-    QPoint topLeft(center.x() - scaledAvatar.width() / 2, center.y() - scaledAvatar.height() / 2);
-    QRect targetRect(topLeft, scaledAvatar.size());
+        painter->save();
+        painter->setClipPath(path);
+        painter->drawImage(avatarRect, scaledAvatar);
+        painter->restore();
 
-    // Рисуем аватарку
-    painter->drawImage(targetRect, scaledAvatar);
+        // (Дополнительно) Белая рамка вокруг круга:
+        painter->save();
+        QPen pen(Qt::white, 2);
+        painter->setPen(pen);
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(avatarRect);
+        painter->restore();
+    }
 
-    painter->restore();
+    int imageSpace = 70; // Смещение текста справа от аватара
 
-    // Если есть новое сообщение, рисуем иконку
+    // Новое сообщение
     if (!new_mes.isEmpty()) {
         QRect newMsgRect = option.rect.adjusted(409, 22, -7, -7);
         newMsg.paint(painter, newMsgRect, Qt::AlignVCenter | Qt::AlignLeft);
     }
 
-    // Если пользователь в сети, рисуем статус
+    // Статус пользователя
     if (status_seti == 1) {
-        QRect statusRect = option.rect.adjusted(44, 44, 9, -9);
-        statusUser.paint(painter, statusRect, Qt::AlignVCenter | Qt::AlignLeft);
+        QRect statusRect(avatarRect.right() - 10, avatarRect.bottom() - 10, 10, 10);
+        statusUser.paint(painter, statusRect, Qt::AlignCenter);
     }
 
-    // Заголовок
+    // Заголовок (имя контакта)
     r = option.rect.adjusted(imageSpace, 0, -10, -30);
     painter->setFont(QFont("Arial", 11, QFont::Bold));
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignBottom | Qt::AlignLeft, title, &r);
 
-    // Описание
+    // Описание (статус или сообщение)
     r = option.rect.adjusted(imageSpace, 30, -10, 0);
     if (description.length() > 45) {
         qreal maxWidth = std::max(150.0, option.rect.width() * 0.7);
@@ -99,7 +110,7 @@ void ListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     painter->setFont(QFont("Lucida Grande", 10, QFont::Normal));
     painter->drawText(r.left(), r.top(), r.width(), r.height(), Qt::AlignLeft, date, &r);
 
-    // Новые сообщения (число)
+    // Количество новых сообщений
     if (new_mes.length() < 2) {
         r = option.rect.adjusted(418, 30, -10, 0);
     } else {
