@@ -1,27 +1,62 @@
-Pa_StopStream(stream);
-Pa_AbortStream(stream);
-Pa_Terminate();
+#include <QDebug>
+#include <portaudio.h>
+#include <pjsua-lib/pjsua.h>
 
-PaError err = Pa_Initialize();
-if (err != paNoError) {
-    gDebug() << "Ошибка инициализации PortAudio:" << Pa_GetErrorText(err);
-    return;
-}
+void restartAudioIfNeeded() {
+    // Завершаем PortAudio и запускаем заново
+    Pa_Terminate();
+    PaError err = Pa_Initialize();
+    if (err != paNoError) {
+        qDebug() << "PortAudio init error:" << Pa_GetErrorText(err);
+        return;
+    }
 
-PaDeviceIndex inputDevice = Pa_GetDefaultInputDevice();
-if (inputDevice == paNoDevice) {
-    gDebug() << "Микрофон не найден.";
-    return;
-}
+    PaDeviceIndex inputDevice = Pa_GetDefaultInputDevice();
+    if (inputDevice == paNoDevice) {
+        qDebug() << "Микрофон не найден.";
+        return;
+    }
 
-gDebug() << "Есть" << inputDevice + 1 << "устройства";
+    qDebug() << "Микрофон обнаружен. Перезапускаем аудио...";
 
-// Здесь можно дополнительно запустить нужный поток, если требуется:
-// err = Pa_StartStream(stream);
+    // Останавливаем pjsua если уже был инициализирован
+    pjsua_destroy();  // Полная остановка библиотеки (если вызовы были активны — нужно завершить заранее)
 
-pj_status_t status = pjsua_set_snd_dev(PJMEDIA_AUD_DEFAULT_CAPTURE_DEV,
-                                       PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV);
-if (status != PJ_SUCCESS) {
-    gDebug() << "Ошибка установки устройств pjsua:" << status;
-    return;
+    pj_status_t status;
+
+    // Создаём снова
+    status = pjsua_create();
+    if (status != PJ_SUCCESS) {
+        qDebug() << "Ошибка pjsua_create()";
+        return;
+    }
+
+    // Настройки конфигураций
+    pjsua_config cfg;
+    pjsua_media_config media_cfg;
+    pjsua_logging_config log_cfg;
+
+    pjsua_config_default(&cfg);
+    pjsua_media_config_default(&media_cfg);
+    pjsua_logging_config_default(&log_cfg);
+
+    cfg.cb.on_incoming_call = nullptr;  // Пропиши обработчики если нужно
+    cfg.cb.on_call_media_state = nullptr;
+
+    // Инициализация pjsua
+    status = pjsua_init(&cfg, &log_cfg, &media_cfg);
+    if (status != PJ_SUCCESS) {
+        qDebug() << "Ошибка pjsua_init()";
+        return;
+    }
+
+    // Подключение звуковых устройств
+    status = pjsua_set_snd_dev(PJMEDIA_AUD_DEFAULT_CAPTURE_DEV,
+                               PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV);
+    if (status != PJ_SUCCESS) {
+        qDebug() << "Ошибка установки звуковых устройств pjsua:" << status;
+        return;
+    }
+
+    qDebug() << "Звук успешно перезапущен после подключения микрофона.";
 }
