@@ -1,62 +1,69 @@
-#include <QDebug>
-#include <portaudio.h>
-#include <pjsua-lib/pjsua.h>
+.pro
+QT += multimedia widgets
 
-void restartAudioIfNeeded() {
-    // Завершаем PortAudio и запускаем заново
-    Pa_Terminate();
-    PaError err = Pa_Initialize();
-    if (err != paNoError) {
-        qDebug() << "PortAudio init error:" << Pa_GetErrorText(err);
-        return;
-    }
+audiorecorder.h:
 
-    PaDeviceIndex inputDevice = Pa_GetDefaultInputDevice();
-    if (inputDevice == paNoDevice) {
-        qDebug() << "Микрофон не найден.";
-        return;
-    }
+#ifndef AUDIORECORDERHELPER_H
+#define AUDIORECORDERHELPER_H
 
-    qDebug() << "Микрофон обнаружен. Перезапускаем аудио...";
+#include <QObject>
+#include <QAudioRecorder>
 
-    // Останавливаем pjsua если уже был инициализирован
-    pjsua_destroy();  // Полная остановка библиотеки (если вызовы были активны — нужно завершить заранее)
+class AudioRecorderHelper : public QObject
+{
+    Q_OBJECT
 
-    pj_status_t status;
+public:
+    explicit AudioRecorderHelper(QObject *parent = nullptr);
+    void toggleRecording();
 
-    // Создаём снова
-    status = pjsua_create();
-    if (status != PJ_SUCCESS) {
-        qDebug() << "Ошибка pjsua_create()";
-        return;
-    }
+private:
+    QAudioRecorder *recorder;
+    bool isRecording;
+};
 
-    // Настройки конфигураций
-    pjsua_config cfg;
-    pjsua_media_config media_cfg;
-    pjsua_logging_config log_cfg;
+#endif // AUDIORECORDERHELPER_H
 
-    pjsua_config_default(&cfg);
-    pjsua_media_config_default(&media_cfg);
-    pjsua_logging_config_default(&log_cfg);
+Cpp:
 
-    cfg.cb.on_incoming_call = nullptr;  // Пропиши обработчики если нужно
-    cfg.cb.on_call_media_state = nullptr;
+#include "audiorecorderhelper.h"
+#include <QStandardPaths>
+#include <QDir>
 
-    // Инициализация pjsua
-    status = pjsua_init(&cfg, &log_cfg, &media_cfg);
-    if (status != PJ_SUCCESS) {
-        qDebug() << "Ошибка pjsua_init()";
-        return;
-    }
+AudioRecorderHelper::AudioRecorderHelper(QObject *parent)
+    : QObject(parent), recorder(new QAudioRecorder(this)), isRecording(false)
+{
+    QAudioEncoderSettings audioSettings;
+    audioSettings.setCodec("audio/aac"); // AAC — для m4a
+    audioSettings.setQuality(QMultimedia::HighQuality);
 
-    // Подключение звуковых устройств
-    status = pjsua_set_snd_dev(PJMEDIA_AUD_DEFAULT_CAPTURE_DEV,
-                               PJMEDIA_AUD_DEFAULT_PLAYBACK_DEV);
-    if (status != PJ_SUCCESS) {
-        qDebug() << "Ошибка установки звуковых устройств pjsua:" << status;
-        return;
-    }
-
-    qDebug() << "Звук успешно перезапущен после подключения микрофона.";
+    recorder->setEncodingSettings(audioSettings);
+    recorder->setContainerFormat("mp4"); // Для .m4a подойдет mp4 контейнер
 }
+
+void AudioRecorderHelper::toggleRecording()
+{
+    if (!isRecording) {
+        QString outputPath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+        QDir().mkpath(outputPath);
+        QString filePath = outputPath + "/record_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".m4a";
+
+        recorder->setOutputLocation(QUrl::fromLocalFile(filePath));
+        recorder->record();
+    } else {
+        recorder->stop();
+    }
+
+    isRecording = !isRecording;
+}
+
+В моем классе h
+
+#include "audiorecorderhelper.h"
+AudioRecorderHelper *audioHelper;
+
+
+В моем cpp:
+
+audioHelper = new AudioRecorderHelper(this);
+connect(ui->recordButton, &QPushButton::clicked, audioHelper, &AudioRecorderHelper::toggleRecording) ;
