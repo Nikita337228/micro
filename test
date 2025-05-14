@@ -1,10 +1,27 @@
-QString wavPath = audioRecorder->outputLocation().toLocalFile();
-QString m4aPath = wavPath;
-m4aPath.chop(4);
-m4aPath += ".m4a";
+Системные DLL (если не установлены C++ Redistributable):
+	•	msvcp100.dll
+	•	msvcr100.dll
+	•	concrt140.dll
+	•	ucrtbase.dll
 
-QProcess::execute("ffmpeg", {
-    "-y", "-i", wavPath, "-c:a", "aac", "-b:a", "128k", m4aPath
-});
+Qt DLL:
+	•	Qt5Core.dll
+	•	Qt5Gui.dll
+	•	Qt5Widgets.dll
+	•	Qt5Multimedia.dll
+	•	Qt5MultimediaWidgets.dll
+	•	Qt5Network.dll
+	•	Qt5Quick.dll (если используется QML)
 
-QFile::remove(wavPath);
+Плагины для мультимедиа (для QAudioRecorder):
+	•	qwindows.dll (в папке platforms)
+	•	qtaudio_wasapi.dll (в папке audio)
+	•	qtaudio_windows.dll (в папке audio)
+	•	dsengine.dll (в папке mediaservice)
+	•	qtmedia_audioengine.dll (в папке mediaservice)
+	•	wmfengine.dll (в папке mediaservice)
+
+Дополнительные зависимости:
+	•	libgcc_s_dw2-1.dll (если используется MinGW)
+	•	libstdc++-6.dll (если используется MinGW)
+	•	libwinpthread-1.dll (если используется MinGW)
