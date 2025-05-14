@@ -1,69 +1,10 @@
-.pro
-QT += multimedia widgets
+QString wavPath = audioRecorder->outputLocation().toLocalFile();
+QString m4aPath = wavPath;
+m4aPath.chop(4);
+m4aPath += ".m4a";
 
-audiorecorder.h:
+QProcess::execute("ffmpeg", {
+    "-y", "-i", wavPath, "-c:a", "aac", "-b:a", "128k", m4aPath
+});
 
-#ifndef AUDIORECORDERHELPER_H
-#define AUDIORECORDERHELPER_H
-
-#include <QObject>
-#include <QAudioRecorder>
-
-class AudioRecorderHelper : public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit AudioRecorderHelper(QObject *parent = nullptr);
-    void toggleRecording();
-
-private:
-    QAudioRecorder *recorder;
-    bool isRecording;
-};
-
-#endif // AUDIORECORDERHELPER_H
-
-Cpp:
-
-#include "audiorecorderhelper.h"
-#include <QStandardPaths>
-#include <QDir>
-
-AudioRecorderHelper::AudioRecorderHelper(QObject *parent)
-    : QObject(parent), recorder(new QAudioRecorder(this)), isRecording(false)
-{
-    QAudioEncoderSettings audioSettings;
-    audioSettings.setCodec("audio/aac"); // AAC — для m4a
-    audioSettings.setQuality(QMultimedia::HighQuality);
-
-    recorder->setEncodingSettings(audioSettings);
-    recorder->setContainerFormat("mp4"); // Для .m4a подойдет mp4 контейнер
-}
-
-void AudioRecorderHelper::toggleRecording()
-{
-    if (!isRecording) {
-        QString outputPath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-        QDir().mkpath(outputPath);
-        QString filePath = outputPath + "/record_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".m4a";
-
-        recorder->setOutputLocation(QUrl::fromLocalFile(filePath));
-        recorder->record();
-    } else {
-        recorder->stop();
-    }
-
-    isRecording = !isRecording;
-}
-
-В моем классе h
-
-#include "audiorecorderhelper.h"
-AudioRecorderHelper *audioHelper;
-
-
-В моем cpp:
-
-audioHelper = new AudioRecorderHelper(this);
-connect(ui->recordButton, &QPushButton::clicked, audioHelper, &AudioRecorderHelper::toggleRecording) ;
+QFile::remove(wavPath);
