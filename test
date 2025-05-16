@@ -5,23 +5,23 @@ QAudioEncoderSettings audioSettings;
 audioSettings.setCodec("audio/pcm");
 audioSettings.setSampleRate(16000);
 audioSettings.setChannelCount(1);
-audioSettings.setBitRate(128000); // Лучше указать стандартный битрейт
+audioSettings.setBitRate(128000); // Указан нормальный битрейт
 audioSettings.setQuality(QMultimedia::HighQuality);
 
 audio->setEncodingSettings(audioSettings);
-
-// Установим имя выходного файла
 audio->setOutputLocation(QUrl::fromLocalFile("output.wav"));
 
-// Ждём, пока аудиозапись действительно начнётся
-connect(audio, &QAudioRecorder::stateChanged, this, [this](QMediaRecorder::State state) {
+// Подключаем сигнал, чтобы отследить начало записи
+connect(audio, &QAudioRecorder::stateChanged, this, [](QMediaRecorder::State state) {
     if (state == QMediaRecorder::RecordingState) {
-        qDebug() << "Recording started, ready to speak!";
-        // Можно включить UI-индикатор, начать отсчёт и т.д.
+        qDebug() << "Recording started!";
     }
 });
 
-// Старт с задержкой 100 мс для избежания щелчка
-QTimer::singleShot(100, this, [this]() {
+// Используем QTimer без лямбды
+QTimer* timer = new QTimer(this);
+timer->setSingleShot(true);
+connect(timer, &QTimer::timeout, this, [this]() {
     audio->record();
 });
+timer->start(100); // Задержка перед запуском
