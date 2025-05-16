@@ -1,27 +1,27 @@
-Системные DLL (если не установлены C++ Redistributable):
-	•	msvcp100.dll
-	•	msvcr100.dll
-	•	concrt140.dll
-	•	ucrtbase.dll
+audio = new QAudioRecorder(this);
+audio->setAudioInput(audio->defaultAudioInput());
 
-Qt DLL:
-	•	Qt5Core.dll
-	•	Qt5Gui.dll
-	•	Qt5Widgets.dll
-	•	Qt5Multimedia.dll
-	•	Qt5MultimediaWidgets.dll
-	•	Qt5Network.dll
-	•	Qt5Quick.dll (если используется QML)
+QAudioEncoderSettings audioSettings;
+audioSettings.setCodec("audio/pcm");
+audioSettings.setSampleRate(16000);
+audioSettings.setChannelCount(1);
+audioSettings.setBitRate(128000); // Лучше указать стандартный битрейт
+audioSettings.setQuality(QMultimedia::HighQuality);
 
-Плагины для мультимедиа (для QAudioRecorder):
-	•	qwindows.dll (в папке platforms)
-	•	qtaudio_wasapi.dll (в папке audio)
-	•	qtaudio_windows.dll (в папке audio)
-	•	dsengine.dll (в папке mediaservice)
-	•	qtmedia_audioengine.dll (в папке mediaservice)
-	•	wmfengine.dll (в папке mediaservice)
+audio->setEncodingSettings(audioSettings);
 
-Дополнительные зависимости:
-	•	libgcc_s_dw2-1.dll (если используется MinGW)
-	•	libstdc++-6.dll (если используется MinGW)
-	•	libwinpthread-1.dll (если используется MinGW)
+// Установим имя выходного файла
+audio->setOutputLocation(QUrl::fromLocalFile("output.wav"));
+
+// Ждём, пока аудиозапись действительно начнётся
+connect(audio, &QAudioRecorder::stateChanged, this, [this](QMediaRecorder::State state) {
+    if (state == QMediaRecorder::RecordingState) {
+        qDebug() << "Recording started, ready to speak!";
+        // Можно включить UI-индикатор, начать отсчёт и т.д.
+    }
+});
+
+// Старт с задержкой 100 мс для избежания щелчка
+QTimer::singleShot(100, this, [this]() {
+    audio->record();
+});
