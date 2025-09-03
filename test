@@ -1,39 +1,121 @@
-class MyDelegate : public QStyledItemDelegate
+#ifndef TEST_DELEGATE_H_
+#define TEST_DELEGATE_H_
+
+#include <QAbstractItemDelegate>
+#include <QPainter>
+#include <QTextDocument>
+#include <QImage>
+
+class testDelegate : public QAbstractItemDelegate
 {
+    int d_radius;
+    int d_toppadding;
+    int d_bottompadding;
+    int d_leftpadding;
+    int d_rightpadding;
+    int d_verticalmargin;
+    int d_horizontalmargin;
+    int d_pointerwidth;
+    int d_pointerheight;
+    QFont font;
+
 public:
-    using QStyledItemDelegate::QStyledItemDelegate;
+    inline testDelegate(QObject *parent = nullptr);
 
-    void paint(QPainter *painter,
-               const QStyleOptionViewItem &option,
-               const QModelIndex &index) const override
-    {
-        painter->save();
-
-        // Фон при выделении/наведении
-        if (option.state & QStyle::State_Selected) {
-            painter->fillRect(option.rect, option.palette.highlight());
-        } else if (option.state & QStyle::State_MouseOver) {
-            painter->fillRect(option.rect, option.palette.light());
-        } else {
-            painter->fillRect(option.rect, option.palette.base());
-        }
-
-        // Текст
-        QString text = index.data(Qt::DisplayRole).toString();
-        painter->drawText(option.rect, Qt::AlignCenter, text);
-
-        painter->restore();
-    }
-
-    QSize sizeHint(const QStyleOptionViewItem &option,
-                   const QModelIndex &index) const override
-    {
-        // Можно задать фиксированный размер элемента
-        return QSize(100, 30);
-    }
+protected:
+    inline void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
+    inline QSize sizeHint(QStyleOptionViewItem const &option, QModelIndex const &index) const override;
 };
 
-ui->listWidget->setStyleSheet(
-    "QListWidget::item:hover { background: transparent; }"
-    "QListWidget::item:selected { background: transparent; }"
-);
+inline testDelegate::testDelegate(QObject *parent)
+    : QAbstractItemDelegate(parent),
+      d_radius(10),
+      d_toppadding(8),
+      d_bottompadding(7),
+      d_leftpadding(10),
+      d_rightpadding(10),
+      d_verticalmargin(10),
+      d_horizontalmargin(10),
+      d_pointerwidth(10),
+      d_pointerheight(7),
+      font("Roboto", 11)
+{
+}
+
+inline void testDelegate::paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const
+{
+    QTextDocument bodydoc;
+    QTextOption textOption;
+    textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    bodydoc.setDefaultTextOption(textOption);
+    bodydoc.setDefaultFont(font);
+
+    QString bodytext = index.data(Qt::DisplayRole).toString();
+    bodydoc.setHtml(bodytext);
+
+    qreal maxWidth = std::max(150.0, option.rect.width() * 0.6);
+    bodydoc.setTextWidth(std::min(bodydoc.idealWidth(), maxWidth));
+
+    qreal bubbleWidth = bodydoc.size().width() + d_leftpadding + d_rightpadding;
+    qreal bubbleHeight = bodydoc.size().height() + d_toppadding + d_bottompadding;
+
+    bool outgoing = index.data(Qt::UserRole + 1).toString() == "Outgoing";
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+
+    // --- Исправлено: фон при наведении/выделении
+    if (option.state & QStyle::State_Selected) {
+        painter->fillRect(option.rect, option.palette.highlight());
+    } else if (option.state & QStyle::State_MouseOver) {
+        painter->fillRect(option.rect, option.palette.alternateBase());
+    }
+
+    // --- смещение пузыря
+    qreal xOffset = outgoing
+                        ? option.rect.width() - bubbleWidth - d_horizontalmargin
+                        : d_horizontalmargin;
+    painter->translate(option.rect.left() + xOffset,
+                       option.rect.top() + d_verticalmargin);
+
+    QColor bgcolor = outgoing ? QColor("#dbccfc") : QColor("#b697fc");
+
+    QPainterPath bubble;
+    bubble.addRoundedRect(0, 0, bubbleWidth, bubbleHeight, d_radius, d_radius);
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(bgcolor);
+    painter->drawPath(bubble);
+
+    // --- цвет текста
+    QAbstractTextDocumentLayout::PaintContext ctx;
+    ctx.palette.setColor(QPalette::Text, outgoing ? Qt::black : Qt::white);
+
+    // --- смещение текста (вместо -15 в sizeHint)
+    painter->translate(d_leftpadding, d_toppadding - 5);
+
+    bodydoc.documentLayout()->draw(painter, ctx);
+
+    painter->restore();
+}
+
+inline QSize testDelegate::sizeHint(QStyleOptionViewItem const &option,
+                                    QModelIndex const &index) const
+{
+    QTextDocument bodydoc;
+    QTextOption textOption;
+    textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    bodydoc.setDefaultTextOption(textOption);
+    bodydoc.setDefaultFont(font);
+
+    QString bodytext = index.data(Qt::DisplayRole).toString();
+    bodydoc.setHtml(bodytext);
+
+    qreal maxWidth = std::max(150.0, option.rect.width() * 0.6);
+    bodydoc.setTextWidth(std::min(bodydoc.idealWidth(), maxWidth));
+
+    return QSize(bodydoc.size().width() + d_leftpadding + d_rightpadding,
+                 bodydoc.size().height() + d_toppadding + d_bottompadding);
+}
+
+#endif // TEST_DELEGATE_H_
