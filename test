@@ -1,27 +1,34 @@
-audio = new QAudioRecorder(this);
-audio->setAudioInput(audio->defaultAudioInput());
+class MyDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
 
-QAudioEncoderSettings audioSettings;
-audioSettings.setCodec("audio/pcm");
-audioSettings.setSampleRate(16000);
-audioSettings.setChannelCount(1);
-audioSettings.setBitRate(128000); // Указан нормальный битрейт
-audioSettings.setQuality(QMultimedia::HighQuality);
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override
+    {
+        painter->save();
 
-audio->setEncodingSettings(audioSettings);
-audio->setOutputLocation(QUrl::fromLocalFile("output.wav"));
+        // Фон при выделении/наведении
+        if (option.state & QStyle::State_Selected) {
+            painter->fillRect(option.rect, option.palette.highlight());
+        } else if (option.state & QStyle::State_MouseOver) {
+            painter->fillRect(option.rect, option.palette.light());
+        } else {
+            painter->fillRect(option.rect, option.palette.base());
+        }
 
-// Подключаем сигнал, чтобы отследить начало записи
-connect(audio, &QAudioRecorder::stateChanged, this, [](QMediaRecorder::State state) {
-    if (state == QMediaRecorder::RecordingState) {
-        qDebug() << "Recording started!";
+        // Текст
+        QString text = index.data(Qt::DisplayRole).toString();
+        painter->drawText(option.rect, Qt::AlignCenter, text);
+
+        painter->restore();
     }
-});
 
-// Используем QTimer без лямбды
-QTimer* timer = new QTimer(this);
-timer->setSingleShot(true);
-connect(timer, &QTimer::timeout, this, [this]() {
-    audio->record();
-});
-timer->start(100); // Задержка перед запуском
+    QSize sizeHint(const QStyleOptionViewItem &option,
+                   const QModelIndex &index) const override
+    {
+        // Можно задать фиксированный размер элемента
+        return QSize(100, 30);
+    }
+};
