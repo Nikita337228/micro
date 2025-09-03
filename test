@@ -119,3 +119,194 @@ inline QSize testDelegate::sizeHint(QStyleOptionViewItem const &option,
 }
 
 #endif // TEST_DELEGATE_H_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#ifndef TEST_DELEGATE_H_
+#define TEST_DELEGATE_H_
+
+#include <QAbstractItemDelegate>
+#include <QPainter>
+#include <QTextDocument>
+#include <QImage>
+#include <QDebug>
+
+class testDelegate : public QAbstractItemDelegate
+{
+    int d_radius;
+    int d_toppadding;
+    int d_bottompadding;
+    int d_leftpadding;
+    int d_rightpadding;
+    int d_verticalmargin;
+    int d_horizontalmargin;
+    int d_pointerwidth;
+    int d_pointerheight;
+    QFont font;
+
+public:
+    inline testDelegate(QObject *parent = nullptr);
+
+protected:
+    inline void paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const override;
+    inline QSize sizeHint(QStyleOptionViewItem const &option, QModelIndex const &index) const override;
+};
+
+// ================== CONSTRUCTOR ==================
+inline testDelegate::testDelegate(QObject *parent)
+    : QAbstractItemDelegate(parent),
+      d_radius(10),
+      d_toppadding(8),
+      d_bottompadding(7),
+      d_leftpadding(10),
+      d_rightpadding(10),
+      d_verticalmargin(10),
+      d_horizontalmargin(10),
+      d_pointerwidth(10),
+      d_pointerheight(7),
+      font("Roboto", 11) {}
+
+// ================== PAINT ==================
+inline void testDelegate::paint(QPainter *painter, QStyleOptionViewItem const &option, QModelIndex const &index) const
+{
+    QTextDocument bodydoc;
+    QTextOption textOption;
+    textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    bodydoc.setDefaultTextOption(textOption);
+    bodydoc.setDefaultFont(font);
+
+    QString bodytext = index.data(Qt::DisplayRole).toString();
+    bodydoc.setHtml(bodytext);
+
+    qreal maxWidth = std::max(150.0, option.rect.width() * 0.6);
+    bodydoc.setTextWidth(std::min(bodydoc.idealWidth(), maxWidth));
+
+    qreal bubbleWidth = bodydoc.size().width() + d_leftpadding + d_rightpadding;
+    qreal bubbleHeight = bodydoc.size().height() + d_toppadding + d_bottompadding;
+
+    bool outgoing             = index.data(Qt::UserRole + 1).toString() == "Outgoing";
+    bool callInformation      = index.data(Qt::UserRole + 3).toString() == "callInformation";
+    bool dateMessageVhod      = index.data(Qt::UserRole + 4).toString() == "dateMessageVhod";
+    bool dateMessageIshod     = index.data(Qt::UserRole + 5).toString() == "dateMessageIshod";
+    bool filesVhod            = index.data(Qt::UserRole + 6).toString() == "filesVhod";
+    bool filesIschod          = index.data(Qt::UserRole + 7).toString() == "filesIschod";
+    bool callInformationIshod = index.data(Qt::UserRole + 8).toString() == "callInformationIshod";
+    bool dateCallVhod         = index.data(Qt::UserRole + 9).toString() == "dateCallVhod";
+    bool dateCallIshod        = index.data(Qt::UserRole + 10).toString() == "dateCallIshod";
+    bool filesVhodDownload    = index.data(Qt::UserRole + 9).toString() == "filesVhodDownload";
+    bool filesIschodDownload  = index.data(Qt::UserRole + 10).toString() == "filesIschodDownload";
+    bool filesIschodPlay      = index.data(Qt::UserRole + 10).toString() == "filesIschodPlay";
+    bool filesIschodStop      = index.data(Qt::UserRole + 10).toString() == "filesIschodStop";
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+
+    // --- Исправлено: фон при наведении/выделении
+    if (option.state & QStyle::State_Selected) {
+        painter->fillRect(option.rect, option.palette.highlight());
+    } else if (option.state & QStyle::State_MouseOver) {
+        painter->fillRect(option.rect, option.palette.alternateBase());
+    }
+
+    // Определяем положение пузыря
+    qreal xOffset;
+    if (outgoing || callInformationIshod || dateCallIshod || dateMessageIshod || filesIschod || filesIschodDownload || filesIschodPlay || filesIschodStop) {
+        xOffset = option.rect.width() - bubbleWidth - d_horizontalmargin;
+    } else {
+        xOffset = d_horizontalmargin;
+    }
+
+    painter->translate(option.rect.left() + xOffset,
+                       option.rect.top() + d_verticalmargin);
+
+    QColor bgcolor;
+    if (outgoing || callInformationIshod || filesIschod || filesIschodDownload || filesIschodPlay || filesIschodStop)
+        bgcolor = QColor("#dbccfc");
+    else if (dateCallIshod || dateCallVhod || dateMessageVhod || dateMessageIshod)
+        bgcolor = QColor("#00FFFFFF");
+    else
+        bgcolor = QColor("#b697fc");
+
+    // --- Рисуем пузырь
+    QPainterPath bubble;
+    bubble.addRoundedRect(0, 0, bubbleWidth, bubbleHeight, d_radius, d_radius);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(bgcolor);
+    painter->drawPath(bubble);
+
+    // Цвет текста
+    QAbstractTextDocumentLayout::PaintContext ctx;
+    ctx.palette.setColor(QPalette::Text,
+                         outgoing || callInformationIshod || dateCallIshod || dateCallVhod || dateMessageVhod || dateMessageIshod || filesIschod || filesIschodPlay || filesIschodStop || filesIschodDownload
+                             ? Qt::black
+                             : Qt::white);
+
+    // --- Смещение текста (вместо -15 в sizeHint)
+    if (dateMessageIshod)
+        painter->translate(25, -8);
+    else if (dateMessageVhod)
+        painter->translate(d_leftpadding - 8, -8);
+    else if (filesIschod || filesIschodPlay || filesIschodStop || filesIschodDownload || filesVhod || filesVhodDownload)
+        painter->translate(d_leftpadding + 10, d_toppadding - 5);
+    else if (dateCallVhod)
+        painter->translate(d_leftpadding + 20, d_toppadding - 18);
+    else if (dateCallIshod)
+        painter->translate(d_rightpadding - (bubbleWidth * 2.6) + 4, d_toppadding - 18);
+    else
+        painter->translate(d_leftpadding, d_toppadding - 5);
+
+    // Шрифты для особых случаев
+    if (dateMessageIshod || dateMessageVhod || dateCallVhod || dateCallIshod)
+        bodydoc.setDefaultFont(QFont("Roboto", 9));
+    if (filesIschod || filesIschodPlay || filesIschodStop || filesIschodDownload || filesVhod || filesVhodDownload)
+        bodydoc.setDefaultFont(QFont("Roboto", 11));
+
+    bodydoc.documentLayout()->draw(painter, ctx);
+
+    // --- Иконки (как у тебя было)
+    if ((!dateCallIshod) && (!dateCallVhod) && (!dateMessageVhod) && (!dateMessageIshod) && (!callInformationIshod) && (!callInformation)) {
+        QImage checkmark(":/resource/222/galochka.png");
+        if (!checkmark.isNull()) {
+            int checkmarkSize = 13;
+            int checkmarkX = bubbleWidth - checkmarkSize - 9;
+            int checkmarkY = bubbleHeight;
+            painter->drawImage(QRect(checkmarkX, checkmarkY - 22, checkmarkSize, checkmarkSize), checkmark);
+        }
+    }
+
+    painter->restore();
+}
+
+// ================== SIZEHINT ==================
+inline QSize testDelegate::sizeHint(QStyleOptionViewItem const &option,
+                                    QModelIndex const &index) const
+{
+    QTextDocument bodydoc;
+    QTextOption textOption;
+    textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    bodydoc.setDefaultTextOption(textOption);
+    bodydoc.setDefaultFont(font);
+
+    QString bodytext = index.data(Qt::DisplayRole).toString();
+    bodydoc.setHtml(bodytext);
+
+    qreal maxWidth = std::max(150.0, option.rect.width() * 0.6);
+    bodydoc.setTextWidth(std::min(bodydoc.idealWidth(), maxWidth));
+
+    return QSize(bodydoc.size().width() + d_leftpadding + d_rightpadding,
+                 bodydoc.size().height() + d_toppadding + d_bottompadding);
+}
+
+#endif // TEST_DELEGATE_H_
