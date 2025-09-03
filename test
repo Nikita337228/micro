@@ -32,3 +32,8 @@ public:
         return QSize(100, 30);
     }
 };
+
+ui->listWidget->setStyleSheet(
+    "QListWidget::item:hover { background: transparent; }"
+    "QListWidget::item:selected { background: transparent; }"
+);
